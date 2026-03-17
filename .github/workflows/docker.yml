@@ -61,7 +61,7 @@ jobs:
     
     - name: Start services with Docker Compose
       run: |
-        docker-compose up -d
+        docker compose up -d
         sleep 15
     
     - name: Test Docker Compose services
@@ -86,14 +86,14 @@ jobs:
       if: always()
       run: |
         echo "=== App Service Logs ==="
-        docker-compose logs app
+        docker compose logs app
         echo "=== Nginx Service Logs ==="
-        docker-compose logs nginx
+        docker compose logs nginx
     
     - name: Cleanup Docker Compose
       if: always()
       run: |
-        docker-compose down -v
+        docker compose down -v
         docker system prune -f
 
   build-and-push:
