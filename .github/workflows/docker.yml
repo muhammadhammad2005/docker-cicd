@@ -76,7 +76,7 @@ jobs:
     
     - name: Test Docker Compose services
       run: |
-        curl -f http://localhost:3000/health || exit 1
+        curl -f http://localhost:3001/health || exit 1
         echo "Direct app access successful"
         
         curl -f http://localhost:8080/health || exit 1
