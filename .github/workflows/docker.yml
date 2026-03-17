@@ -27,7 +27,7 @@ jobs:
     - name: Install dependencies
       run: npm install
     
-    - name: Run tests
+    - name: Run unit tests
       run: |
         npm start &
         APP_PID=$!
@@ -54,6 +54,47 @@ jobs:
         curl -f http://localhost:3000/health || exit 1
         docker stop test-container
         docker rm test-container
+    
+    - name: Create test environment with Docker Compose
+      run: |
+        sed -i 's/build: \./image: ${{ env.DOCKER_IMAGE_NAME }}:test/' docker-compose.yml
+    
+    - name: Start services with Docker Compose
+      run: |
+        docker-compose up -d
+        sleep 15
+    
+    - name: Test Docker Compose services
+      run: |
+        curl -f http://localhost:3000/health || exit 1
+        echo "Direct app access successful"
+        
+        curl -f http://localhost:8080/health || exit 1
+        echo "Nginx proxy access successful"
+        
+        response=$(curl -s http://localhost:3000/)
+        echo "App response: $response"
+        
+        if echo "$response" | grep -q "Hello from Docker CI/CD Demo"; then
+          echo "App functionality test passed"
+        else
+          echo "App functionality test failed"
+          exit 1
+        fi
+    
+    - name: Check service logs
+      if: always()
+      run: |
+        echo "=== App Service Logs ==="
+        docker-compose logs app
+        echo "=== Nginx Service Logs ==="
+        docker-compose logs nginx
+    
+    - name: Cleanup Docker Compose
+      if: always()
+      run: |
+        docker-compose down -v
+        docker system prune -f
 
   build-and-push:
     needs: build-and-test
@@ -92,3 +133,13 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+    
+    - name: Verify pushed image
+      run: |
+        docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+        docker run -d -p 3001:3000 --name verify-container ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+        sleep 10
+        curl -f http://localhost:3001/health || exit 1
+        echo "Pushed image verification successful"
+        docker stop verify-container
+        docker rm verify-container
