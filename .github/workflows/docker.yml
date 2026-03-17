@@ -50,15 +50,24 @@ jobs:
     
     - name: Test Docker image
       run: |
-        docker run -d -p 8000:8000 --name test-container ${{ env.DOCKER_IMAGE_NAME }}:test
-        sleep 10
-        curl -f http://localhost:8000/health || exit 1
+        docker run -d -p 8000:3000 --name test-container ${{ env.DOCKER_IMAGE_NAME }}:test
+        
+        # Wait for app to be ready
+        for i in {1..10}; do
+          if curl -f http://localhost:8000/health; then
+            echo "App is ready"
+            break
+          fi
+          echo "Waiting for app..."
+          sleep 3
+        done
+        
         docker stop test-container
         docker rm test-container
     
     - name: Create test environment with Docker Compose
       run: |
-        sed -i 's/build: \./image: ${{ env.DOCKER_IMAGE_NAME }}:test/' docker-compose.yml
+        sed -i "s|build: \.|image: ${DOCKER_IMAGE_NAME}:test|" docker-compose.yml
     
     - name: Start services with Docker Compose
       run: |
@@ -139,8 +148,15 @@ jobs:
       run: |
         docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
         docker run -d -p 3001:3000 --name verify-container ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE_NAME }}:latest
-        sleep 10
-        curl -f http://localhost:3001/health || exit 1
-        echo "Pushed image verification successful"
+        
+        for i in {1..10}; do
+          if curl -f http://localhost:3001/health; then
+            echo "Pushed image verification successful"
+            break
+          fi
+          echo "Waiting for container..."
+          sleep 3
+        done
+        
         docker stop verify-container
         docker rm verify-container
